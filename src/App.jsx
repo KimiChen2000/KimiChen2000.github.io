@@ -5,8 +5,10 @@ import Lenis from 'lenis'
 import {
   ArrowDown,
   ArrowDownRight,
+  ArrowUp,
   ArrowUpRight,
   Asterisk,
+  Download,
   Mail,
   MapPin,
   Sparkles,
@@ -14,6 +16,12 @@ import {
 import { profile } from './profile.js'
 
 gsap.registerPlugin(ScrollTrigger)
+
+const signalLevels = [
+  0.22, 0.36, 0.58, 0.34, 0.72, 0.46, 0.88, 0.54, 0.32, 0.68,
+  0.94, 0.52, 0.78, 0.42, 0.62, 1, 0.7, 0.38, 0.84, 0.56,
+  0.3, 0.64, 0.9, 0.48, 0.74, 0.4, 0.6, 0.28,
+]
 
 function Loader() {
   const [progress, setProgress] = useState(0)
@@ -114,6 +122,56 @@ function ParticleField() {
   return <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />
 }
 
+function HeroSignal() {
+  const signalRef = useRef(null)
+
+  useEffect(() => {
+    const signal = signalRef.current
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const finePointer = window.matchMedia('(pointer: fine)').matches
+    if (!signal || reduceMotion || !finePointer) return undefined
+
+    const handlePointer = (event) => {
+      const bounds = signal.getBoundingClientRect()
+      const centerX = bounds.left + bounds.width / 2
+      const centerY = bounds.top + bounds.height / 2
+      const proximity = Math.max(0, 1 - Math.hypot(event.clientX - centerX, event.clientY - centerY) / 420)
+      signal.style.setProperty('--signal-energy', (1 + proximity * 0.38).toFixed(2))
+    }
+
+    window.addEventListener('pointermove', handlePointer, { passive: true })
+    return () => window.removeEventListener('pointermove', handlePointer)
+  }, [])
+
+  return (
+    <div className="hero-signal" ref={signalRef} aria-hidden="true">
+      <div className="signal-heading">
+        <span><i /> VISUAL RHYTHM</span>
+        <small>AI SIGNAL</small>
+      </div>
+      <div className="signal-frame">
+        <div className="signal-bars">
+          {signalLevels.map((level, index) => (
+            <i
+              key={`${level}-${index}`}
+              style={{
+                '--level': level,
+                '--low': (level * 0.28).toFixed(2),
+                '--delay': `${-(index % 8) * 0.11}s`,
+                '--speed': `${0.78 + (index % 5) * 0.12}s`,
+              }}
+            />
+          ))}
+        </div>
+      </div>
+      <div className="signal-footer">
+        <span>GENERATIVE MOTION</span>
+        <span>LIVE · 24/7</span>
+      </div>
+    </div>
+  )
+}
+
 function WordLine({ children, className = '' }) {
   return (
     <span className={`word-line ${className}`}>
@@ -157,10 +215,18 @@ function ProjectVisual({ project, index }) {
 function App() {
   const rootRef = useRef(null)
   const [loaded, setLoaded] = useState(false)
+  const [showBackToTop, setShowBackToTop] = useState(false)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setLoaded(true), 1650)
     return () => window.clearTimeout(timeout)
+  }, [])
+
+  useEffect(() => {
+    const updateBackToTop = () => setShowBackToTop(window.scrollY > window.innerHeight * 0.65)
+    updateBackToTop()
+    window.addEventListener('scroll', updateBackToTop, { passive: true })
+    return () => window.removeEventListener('scroll', updateBackToTop)
   }, [])
 
   useEffect(() => {
@@ -255,6 +321,8 @@ function App() {
       media.add('(prefers-reduced-motion: no-preference)', () => {
         gsap.set('.hero .word', { yPercent: 115 })
         gsap.set('.hero-kicker, .hero-meta, .scroll-hint', { opacity: 0, y: 18 })
+        gsap.set('.hero-signal', { opacity: 0, y: -14 })
+        gsap.set('.signal-frame', { scaleX: 0, transformOrigin: 'left center' })
 
         gsap
           .timeline({ delay: 1.5 })
@@ -268,6 +336,16 @@ function App() {
             '.hero-kicker, .hero-meta, .scroll-hint',
             { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' },
             '-=0.65',
+          )
+          .to(
+            '.hero-signal',
+            { opacity: 1, y: 0, duration: 0.75, ease: 'power3.out' },
+            '-=0.82',
+          )
+          .to(
+            '.signal-frame',
+            { scaleX: 1, duration: 1.05, ease: 'expo.out' },
+            '<0.08',
           )
 
         gsap.to('.hero-title', {
@@ -417,6 +495,17 @@ function App() {
       <div className="cursor-follower" aria-hidden="true" />
       <div className="noise" aria-hidden="true" />
       <div className="scroll-progress" aria-hidden="true"><span /></div>
+      <a
+        className={`back-to-top${showBackToTop ? ' is-visible' : ''}`}
+        href="#top"
+        aria-label="返回页面顶部"
+        aria-hidden={!showBackToTop}
+        tabIndex={showBackToTop ? 0 : -1}
+        data-magnetic
+      >
+        <span>TOP<small>顶部</small></span>
+        <ArrowUp size={17} strokeWidth={1.8} />
+      </a>
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="返回首页">
@@ -438,6 +527,7 @@ function App() {
         <section className="hero" id="top">
           <ParticleField />
           <div className="hero-grid" aria-hidden="true" />
+          <HeroSignal />
           <div className="hero-orb" aria-hidden="true">
             <div className="orb-core">
               {profile.markLines.map((line) => <span key={line}>{line}</span>)}
@@ -498,6 +588,16 @@ function App() {
                 <MapPin size={14} strokeWidth={1.7} />
                 <span>{profile.location}</span>
               </div>
+              <a
+                className="about-resume"
+                href={`${import.meta.env.BASE_URL}resume/Kimi-Chen-Resume.docx`}
+                download="Kimi-Chen-Resume.docx"
+                aria-label="下载 Kimi Chen 的简历"
+                data-cursor
+              >
+                <span>DOWNLOAD CV<small>下载简历</small></span>
+                <Download size={17} strokeWidth={1.7} />
+              </a>
             </aside>
             <div className="about-story">
               <p className="about-kicker" data-reveal>
