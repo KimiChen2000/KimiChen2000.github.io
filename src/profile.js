@@ -17,10 +17,14 @@ export const profile = {
   heroTaglineZh: '构建智能系统 · 创造真实价值',
   intro:
     '计算机科学硕士，专注大模型应用、模型微调部署与机器学习，用工程方法把 AI 能力转化为可落地的产品。',
+  aboutKicker: 'FROM MODEL TO PRODUCT',
+  aboutKickerZh: '从模型到产品',
+  aboutHeadline: ['BUILDING AI', 'THAT WORKS.'],
+  aboutHeadlineZh: '以工程思维，让 AI 能力成为稳定、清晰、真正可用的产品。',
   about:
-    '你好，我是 Kimi。我拥有计算机科学与数学的交叉背景，关注大模型应用、机器学习和算法工程。我喜欢把复杂问题拆解为清晰的工作流，从数据处理、模型训练和评估，一直推进到可交互原型与工程部署。',
+    '我拥有计算机科学与数学的交叉背景，专注大模型应用、机器学习和算法工程。我擅长把复杂问题拆解成清晰、可执行的工作流。',
   philosophy:
-    '我的实践覆盖 Agentic RAG、LoRA 微调、vLLM 推理服务、数据建模和前端开发。我希望技术不只停留在实验指标，而能成为稳定、清晰、真正解决问题的系统。',
+    '从数据处理、模型训练与评估，到 Agentic RAG、LoRA 微调、vLLM 推理服务和交互原型，我关注从模型能力到产品体验的完整落地。',
   stats: [
     { value: '03+', label: 'AI / ML PROJECTS', labelZh: '重点 AI / 算法项目' },
     { value: '83%+', label: 'PREDICTION AUC', labelZh: '预测模型 AUC' },

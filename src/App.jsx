@@ -409,8 +409,6 @@ function App() {
     }
   }, [])
 
-  const aboutWords = Array.from(profile.about)
-
   return (
     <div className="site" ref={rootRef}>
       {!loaded && <Loader />}
@@ -483,23 +481,56 @@ function App() {
           </div>
 
           <div className="about-layout">
-            <aside data-reveal>
-              <p>{profile.eyebrow}</p>
-              <span>{profile.role}<small>{profile.roleZh}</small></span>
+            <aside className="about-profile" data-reveal>
+              <div className="about-profile-top">
+                <span>PROFILE · 01</span>
+                <div className="about-avatar" aria-hidden="true">{profile.initials}</div>
+              </div>
+              <div className="about-profile-name">
+                <strong>{profile.fullName}</strong>
+                <small>{profile.chineseName}</small>
+              </div>
+              <div className="about-profile-role">
+                <p>{profile.role}</p>
+                <small>{profile.roleZh}</small>
+              </div>
+              <div className="about-profile-location">
+                <MapPin size={14} strokeWidth={1.7} />
+                <span>{profile.location}</span>
+              </div>
             </aside>
             <div className="about-story">
-              <p className="about-copy">
-                {aboutWords.map((word, index) => (
-                  <span className="story-word" key={`${word}-${index}`}>{word}</span>
-                ))}
+              <p className="about-kicker" data-reveal>
+                {profile.aboutKicker}<small>{profile.aboutKickerZh}</small>
               </p>
-              <p className="about-secondary" data-reveal>{profile.philosophy}</p>
+              <h2 className="about-copy">
+                {profile.aboutHeadline.map((line) => (
+                  <span className="about-copy-line" key={line}>
+                    {line.split(' ').map((word, index) => (
+                      <span className="story-word" key={`${word}-${index}`}>{word}</span>
+                    ))}
+                  </span>
+                ))}
+              </h2>
+              <p className="about-headline-zh" data-reveal>{profile.aboutHeadlineZh}</p>
             </div>
           </div>
 
+          <div className="about-narrative">
+            <article data-reveal>
+              <span>01</span>
+              <div><strong>BACKGROUND</strong><small>交叉背景</small><p>{profile.about}</p></div>
+            </article>
+            <article data-reveal>
+              <span>02</span>
+              <div><strong>APPROACH</strong><small>实践方式</small><p>{profile.philosophy}</p></div>
+            </article>
+          </div>
+
           <div className="stats">
-            {profile.stats.map((stat) => (
+            {profile.stats.map((stat, index) => (
               <div className="stat" data-reveal key={stat.label}>
+                <span className="stat-index">0{index + 1}</span>
                 <strong>{stat.value}</strong>
                 <span>{stat.label}<small>{stat.labelZh}</small></span>
               </div>
