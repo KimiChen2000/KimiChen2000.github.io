@@ -9,8 +9,8 @@ import {
   ArrowUpRight,
   Asterisk,
   Download,
-  Mail,
   MapPin,
+  Music2,
   Sparkles,
 } from 'lucide-react'
 import { profile } from './profile.js'
@@ -23,7 +23,7 @@ const signalLevels = [
   0.3, 0.64, 0.9, 0.48, 0.74, 0.4, 0.6, 0.28,
 ]
 
-function createAmbientMusic() {
+function createLightMusic() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
   if (!AudioContextClass) return null
 
@@ -31,92 +31,107 @@ function createAmbientMusic() {
   const master = context.createGain()
   const compressor = context.createDynamicsCompressor()
   const filter = context.createBiquadFilter()
-  const padBus = context.createGain()
-  const delay = context.createDelay(2)
+  const delay = context.createDelay(1)
   const feedback = context.createGain()
-  const sources = []
+  const wet = context.createGain()
   let sequenceTimer
   let suspendTimer
-  let noteIndex = 0
+  let step = 0
   let wantsToPlay = false
 
   master.gain.value = 0.0001
-  compressor.threshold.value = -24
-  compressor.knee.value = 24
-  compressor.ratio.value = 5
-  compressor.attack.value = 0.02
-  compressor.release.value = 0.45
+  compressor.threshold.value = -22
+  compressor.knee.value = 20
+  compressor.ratio.value = 4
+  compressor.attack.value = 0.015
+  compressor.release.value = 0.32
   filter.type = 'lowpass'
-  filter.frequency.value = 1050
-  filter.Q.value = 0.65
-  padBus.gain.value = 0.09
-  delay.delayTime.value = 0.38
-  feedback.gain.value = 0.16
+  filter.frequency.value = 4600
+  filter.Q.value = 0.35
+  delay.delayTime.value = 0.24
+  feedback.gain.value = 0.13
+  wet.gain.value = 0.18
 
-  padBus.connect(filter)
   filter.connect(master)
+  filter.connect(delay)
   delay.connect(feedback)
   feedback.connect(delay)
-  delay.connect(master)
+  delay.connect(wet)
+  wet.connect(master)
   master.connect(compressor)
   compressor.connect(context.destination)
 
-  ;[
-    { frequency: 110, gain: 0.34, type: 'sine', detune: -5 },
-    { frequency: 164.81, gain: 0.22, type: 'triangle', detune: 4 },
-    { frequency: 220, gain: 0.14, type: 'sine', detune: 7 },
-  ].forEach((voice) => {
+  const chords = [
+    [261.63, 329.63, 392, 493.88],
+    [220, 261.63, 329.63, 392],
+    [174.61, 220, 261.63, 329.63],
+    [196, 246.94, 293.66, 329.63],
+  ]
+  const arpeggio = [0, 1, 2, 1, 3, 2, 1, 2]
+
+  const playNote = (frequency, now, peak = 0.042, length = 0.78, type = 'triangle') => {
     const oscillator = context.createOscillator()
-    const voiceGain = context.createGain()
-    oscillator.type = voice.type
-    oscillator.frequency.value = voice.frequency
-    oscillator.detune.value = voice.detune
-    voiceGain.gain.value = voice.gain
-    oscillator.connect(voiceGain)
-    voiceGain.connect(padBus)
-    oscillator.start()
-    sources.push(oscillator)
-  })
+    const overtone = context.createOscillator()
+    const overtoneGain = context.createGain()
+    const noteGain = context.createGain()
 
-  const lfo = context.createOscillator()
-  const lfoGain = context.createGain()
-  lfo.type = 'sine'
-  lfo.frequency.value = 0.09
-  lfoGain.gain.value = 0.018
-  lfo.connect(lfoGain)
-  lfoGain.connect(padBus.gain)
-  lfo.start()
-  sources.push(lfo)
+    oscillator.type = type
+    oscillator.frequency.setValueAtTime(frequency, now)
+    overtone.type = 'sine'
+    overtone.frequency.setValueAtTime(frequency * 2, now)
+    overtoneGain.gain.value = 0.16
+    noteGain.gain.setValueAtTime(0.0001, now)
+    noteGain.gain.exponentialRampToValueAtTime(peak, now + 0.018)
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, now + length)
 
-  const notes = [261.63, 329.63, 392, 523.25, 440, 329.63, 293.66, 392]
+    oscillator.connect(noteGain)
+    overtone.connect(overtoneGain)
+    overtoneGain.connect(noteGain)
+    noteGain.connect(filter)
+    oscillator.start(now)
+    overtone.start(now)
+    oscillator.stop(now + length + 0.05)
+    overtone.stop(now + length + 0.05)
+  }
 
-  const playChime = () => {
+  const playChordWash = (chord, now) => {
+    chord.slice(0, 3).forEach((frequency, index) => {
+      const oscillator = context.createOscillator()
+      const chordGain = context.createGain()
+      oscillator.type = index === 1 ? 'triangle' : 'sine'
+      oscillator.frequency.setValueAtTime(frequency / 2, now)
+      oscillator.detune.value = index * 3 - 3
+      chordGain.gain.setValueAtTime(0.0001, now)
+      chordGain.gain.exponentialRampToValueAtTime(0.009, now + 0.42)
+      chordGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.65)
+      oscillator.connect(chordGain)
+      chordGain.connect(filter)
+      oscillator.start(now)
+      oscillator.stop(now + 3.7)
+    })
+  }
+
+  const playStep = () => {
     if (context.state !== 'running' || !wantsToPlay) return
 
     const now = context.currentTime
-    const oscillator = context.createOscillator()
-    const noteGain = context.createGain()
-    const frequency = notes[noteIndex % notes.length]
-    noteIndex += 1
+    const chord = chords[Math.floor(step / 8) % chords.length]
+    const position = step % arpeggio.length
+    const frequency = chord[arpeggio[position]]
 
-    oscillator.type = noteIndex % 3 === 0 ? 'triangle' : 'sine'
-    oscillator.frequency.setValueAtTime(frequency, now)
-    oscillator.detune.setValueAtTime(noteIndex % 2 === 0 ? -4 : 5, now)
-    noteGain.gain.setValueAtTime(0.0001, now)
-    noteGain.gain.exponentialRampToValueAtTime(0.025, now + 0.045)
-    noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.35)
-
-    oscillator.connect(noteGain)
-    noteGain.connect(master)
-    noteGain.connect(delay)
-    oscillator.start(now)
-    oscillator.stop(now + 2.4)
+    playNote(frequency, now)
+    if (position === 0) {
+      playChordWash(chord, now)
+      playNote(chord[0] / 2, now, 0.018, 1.35, 'sine')
+    }
+    if (position === 4) playNote(frequency * 2, now, 0.01, 0.52, 'sine')
+    step += 1
   }
 
   const startSequence = () => {
     if (sequenceTimer) return
-    playChime()
-    sequenceTimer = window.setInterval(playChime, 2100)
+    playStep()
+    sequenceTimer = window.setInterval(playStep, 480)
   }
 
   const stopSequence = () => {
@@ -133,7 +148,7 @@ function createAmbientMusic() {
       const now = context.currentTime
       master.gain.cancelScheduledValues(now)
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
-      master.gain.exponentialRampToValueAtTime(0.22, now + 0.7)
+      master.gain.exponentialRampToValueAtTime(0.24, now + 0.55)
       startSequence()
     },
     pause() {
@@ -142,23 +157,16 @@ function createAmbientMusic() {
       const now = context.currentTime
       master.gain.cancelScheduledValues(now)
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
-      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.38)
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.32)
       window.clearTimeout(suspendTimer)
       suspendTimer = window.setTimeout(() => {
         if (!wantsToPlay && context.state === 'running') context.suspend()
-      }, 430)
+      }, 370)
     },
     destroy() {
       wantsToPlay = false
       stopSequence()
       window.clearTimeout(suspendTimer)
-      sources.forEach((source) => {
-        try {
-          source.stop()
-        } catch {
-          // The source may already have stopped while the page is closing.
-        }
-      })
       context.close().catch(() => {})
     },
   }
@@ -377,7 +385,7 @@ function App() {
 
     try {
       if (!musicEngineRef.current) {
-        musicEngineRef.current = createAmbientMusic()
+        musicEngineRef.current = createLightMusic()
       }
 
       if (!musicEngineRef.current) {
@@ -632,18 +640,6 @@ function App() {
           },
         )
 
-        gsap.to('.contact-orbit', {
-          rotate: 180,
-          scale: 1.22,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: '.contact',
-            start: 'top bottom',
-            end: 'bottom bottom',
-            scrub: 1,
-          },
-        })
-
         ScrollTrigger.create({
           start: 0,
           end: 'max',
@@ -687,18 +683,7 @@ function App() {
         disabled={!musicSupported}
         data-cursor
       >
-        <span className="music-equalizer" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-          <i />
-        </span>
-        <span className="music-copy">
-          <strong>MUSIC</strong>
-          <small>
-            {!musicSupported ? 'UNAVAILABLE · 不支持' : musicOn ? 'ON · 播放中' : 'OFF · 点击开启'}
-          </small>
-        </span>
+        <Music2 size={19} strokeWidth={1.75} aria-hidden="true" />
       </button>
 
       <header className="site-header">
@@ -712,9 +697,6 @@ function App() {
           <a href="#work"><span>WORK</span><small>项目</small></a>
           <a href="#experience"><span>JOURNEY</span><small>经历</small></a>
         </nav>
-        <a className="header-cta" href="#contact">
-          CONTACT <small>联系</small> <ArrowDownRight size={16} strokeWidth={1.7} />
-        </a>
       </header>
 
       <main id="main">
@@ -966,35 +948,6 @@ function App() {
           </div>
         </section>
 
-        <section className="contact" id="contact">
-          <div className="contact-orbit" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </div>
-          <div className="contact-top" data-reveal>
-            <span className="status-dot status-dot-light" />
-            {profile.availability}
-          </div>
-          <div className="contact-main">
-            <p data-reveal>HAVE AN IDEA? <small>有一个想法，或者只是想打个招呼？</small></p>
-            <h2 data-reveal>LET'S BUILD.<br />WHAT'S NEXT.</h2>
-            <a className="contact-button" data-magnetic href={`mailto:${profile.email}`}>
-              <Mail size={22} strokeWidth={1.4} />
-              <span>SAY HELLO<small>联系我</small></span>
-              <ArrowUpRight size={22} strokeWidth={1.4} />
-            </a>
-          </div>
-          <footer>
-            <a className="footer-brand" href="#top">{profile.name}</a>
-            <div className="social-links">
-              {profile.socials.map((social) => (
-                <a href={social.href} key={social.label}>{social.label}<ArrowUpRight size={13} /></a>
-              ))}
-            </div>
-            <span>© 2026 · CURIOUS BY NATURE <small>保持好奇</small></span>
-          </footer>
-        </section>
       </main>
     </div>
   )
