@@ -706,7 +706,7 @@ function App() {
           <HeroSignal active={musicOn} />
           <div className="hero-orb" aria-hidden="true">
             <div className="orb-core">
-              {profile.markLines.map((line) => <span key={line}>{line}</span>)}
+              <span className="orb-monogram">K</span>
             </div>
             <div className="orb-ring ring-a" />
             <div className="orb-ring ring-b" />

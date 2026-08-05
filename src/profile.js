@@ -6,7 +6,6 @@ export const profile = {
   fullName: 'Kimi Chen',
   chineseName: '陈俊哲',
   initials: 'KC',
-  markLines: ['KIMI', 'CHEN'],
   eyebrow: 'KIMI CHEN · AI ENGINEERING',
   role: 'AI Application Development Engineer',
   roleZh: 'AI 应用开发工程师',

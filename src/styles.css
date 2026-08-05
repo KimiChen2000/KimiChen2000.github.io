@@ -619,24 +619,37 @@ textarea {
 }
 
 .orb-core {
-  display: flex;
+  display: grid;
   position: absolute;
   inset: 16%;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
   border-radius: 50%;
+  place-items: center;
   color: var(--paper);
   background: var(--blue);
   box-shadow: 0 30px 80px rgba(77, 104, 255, 0.34);
-  font-size: clamp(24px, 4.2vw, 64px);
-  font-weight: 600;
-  line-height: 0.78;
-  letter-spacing: -0.045em;
+  overflow: hidden;
 }
 
-.orb-core span:last-child {
-  margin-left: 0.42em;
+.orb-core::before {
+  position: absolute;
+  inset: 10%;
+  border: 1px solid rgba(243, 240, 232, 0.2);
+  border-radius: 50%;
+  content: '';
+}
+
+.orb-monogram {
+  position: relative;
+  z-index: 1;
+  padding-right: 0.04em;
+  font-family: 'Bodoni 72', 'Bodoni MT', Didot, Baskerville, 'Times New Roman', serif;
+  font-size: clamp(72px, 10vw, 148px);
+  font-style: italic;
+  font-weight: 400;
+  line-height: 0.8;
+  letter-spacing: -0.04em;
+  text-shadow: 0 16px 35px rgba(11, 26, 106, 0.26);
+  transform: translate(-0.03em, -0.01em);
 }
 
 .orb-ring {
