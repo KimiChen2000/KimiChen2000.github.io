@@ -1,14 +1,18 @@
+import bostonUniversityLogo from './assets/schools/boston-university.gif'
+import universityOfArizonaLogo from './assets/schools/university-of-arizona.svg'
+
 export const profile = {
   name: 'Kimi',
   fullName: 'Kimi Chen',
   chineseName: '陈俊哲',
-  initials: 'K',
+  initials: 'KC',
+  markLines: ['KIMI', 'CHEN'],
   eyebrow: 'KIMI CHEN · AI ENGINEERING',
-  role: 'AI Application Developer / Algorithm Engineer',
-  roleZh: 'AI 应用开发 / 算法工程师',
+  role: 'AI Application Development Engineer',
+  roleZh: 'AI 应用开发工程师',
   location: '福建福州 · 支持英文工作交流',
   email: 'chen.junzhe2000@qq.com',
-  availability: '开放 AI 应用与算法工程机会',
+  availability: 'AI 应用开发工程师 · 开放工作机会',
   heroLines: ['AI SYSTEMS', 'REAL IMPACT'],
   heroTaglineZh: '构建智能系统 · 创造真实价值',
   intro:
@@ -25,6 +29,7 @@ export const profile = {
   education: [
     {
       code: 'BU',
+      logo: bostonUniversityLogo,
       school: 'BOSTON UNIVERSITY',
       schoolZh: '波士顿大学',
       period: '2024.09 — 2025.12',
@@ -36,6 +41,7 @@ export const profile = {
     },
     {
       code: 'UA',
+      logo: universityOfArizonaLogo,
       school: 'UNIVERSITY OF ARIZONA',
       schoolZh: '亚利桑那大学',
       period: '2019.09 — 2023.12',

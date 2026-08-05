@@ -34,7 +34,7 @@ function Loader() {
 
   return (
     <div className="loader" aria-hidden="true">
-      <div className="loader-mark">{profile.initials}</div>
+      <div className="loader-mark">{profile.fullName}</div>
       <div className="loader-bottom">
         <span>正在整理现场</span>
         <span>{String(progress).padStart(3, '0')}%</span>
@@ -422,7 +422,7 @@ function App() {
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="返回首页">
-          <span>{profile.initials}</span>
+          <span>{profile.fullName}</span>
           <i />
         </a>
         <nav aria-label="主导航">
@@ -441,7 +441,9 @@ function App() {
           <ParticleField />
           <div className="hero-grid" aria-hidden="true" />
           <div className="hero-orb" aria-hidden="true">
-            <div className="orb-core">{profile.initials}</div>
+            <div className="orb-core">
+              {profile.markLines.map((line) => <span key={line}>{line}</span>)}
+            </div>
             <div className="orb-ring ring-a" />
             <div className="orb-ring ring-b" />
             <Sparkles className="orb-spark" size={26} strokeWidth={1.2} />
@@ -524,7 +526,12 @@ function App() {
           <div className="education-list">
             {profile.education.map((item) => (
               <article className="education-card" data-reveal key={item.code} style={{ '--education-accent': item.accent }}>
-                <div className="education-code" aria-hidden="true">{item.code}</div>
+                <div className="education-brand">
+                  <div className={`education-mark education-mark-${item.code.toLowerCase()}`}>
+                    <img src={item.logo} alt={`${item.school} official logo`} />
+                  </div>
+                  <span aria-hidden="true">{item.code}</span>
+                </div>
                 <div className="education-school">
                   <time>{item.period}</time>
                   <h3>{item.school}</h3>
@@ -542,6 +549,10 @@ function App() {
               </article>
             ))}
           </div>
+          <p className="education-trademark" data-reveal>
+            SCHOOL NAMES &amp; MARKS ARE SHOWN ONLY TO IDENTIFY EDUCATION HISTORY.
+            <small>校名与标识仅用于说明教育经历，不代表学校对本网站的认可或背书。</small>
+          </p>
         </section>
 
         <div className="marquee" aria-hidden="true">
