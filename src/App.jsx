@@ -23,6 +23,147 @@ const signalLevels = [
   0.3, 0.64, 0.9, 0.48, 0.74, 0.4, 0.6, 0.28,
 ]
 
+function createAmbientMusic() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext
+  if (!AudioContextClass) return null
+
+  const context = new AudioContextClass()
+  const master = context.createGain()
+  const compressor = context.createDynamicsCompressor()
+  const filter = context.createBiquadFilter()
+  const padBus = context.createGain()
+  const delay = context.createDelay(2)
+  const feedback = context.createGain()
+  const sources = []
+  let sequenceTimer
+  let suspendTimer
+  let noteIndex = 0
+  let wantsToPlay = false
+
+  master.gain.value = 0.0001
+  compressor.threshold.value = -24
+  compressor.knee.value = 24
+  compressor.ratio.value = 5
+  compressor.attack.value = 0.02
+  compressor.release.value = 0.45
+  filter.type = 'lowpass'
+  filter.frequency.value = 1050
+  filter.Q.value = 0.65
+  padBus.gain.value = 0.09
+  delay.delayTime.value = 0.38
+  feedback.gain.value = 0.16
+
+  padBus.connect(filter)
+  filter.connect(master)
+  delay.connect(feedback)
+  feedback.connect(delay)
+  delay.connect(master)
+  master.connect(compressor)
+  compressor.connect(context.destination)
+
+  ;[
+    { frequency: 110, gain: 0.34, type: 'sine', detune: -5 },
+    { frequency: 164.81, gain: 0.22, type: 'triangle', detune: 4 },
+    { frequency: 220, gain: 0.14, type: 'sine', detune: 7 },
+  ].forEach((voice) => {
+    const oscillator = context.createOscillator()
+    const voiceGain = context.createGain()
+    oscillator.type = voice.type
+    oscillator.frequency.value = voice.frequency
+    oscillator.detune.value = voice.detune
+    voiceGain.gain.value = voice.gain
+    oscillator.connect(voiceGain)
+    voiceGain.connect(padBus)
+    oscillator.start()
+    sources.push(oscillator)
+  })
+
+  const lfo = context.createOscillator()
+  const lfoGain = context.createGain()
+  lfo.type = 'sine'
+  lfo.frequency.value = 0.09
+  lfoGain.gain.value = 0.018
+  lfo.connect(lfoGain)
+  lfoGain.connect(padBus.gain)
+  lfo.start()
+  sources.push(lfo)
+
+  const notes = [261.63, 329.63, 392, 523.25, 440, 329.63, 293.66, 392]
+
+  const playChime = () => {
+    if (context.state !== 'running' || !wantsToPlay) return
+
+    const now = context.currentTime
+    const oscillator = context.createOscillator()
+    const noteGain = context.createGain()
+    const frequency = notes[noteIndex % notes.length]
+    noteIndex += 1
+
+    oscillator.type = noteIndex % 3 === 0 ? 'triangle' : 'sine'
+    oscillator.frequency.setValueAtTime(frequency, now)
+    oscillator.detune.setValueAtTime(noteIndex % 2 === 0 ? -4 : 5, now)
+    noteGain.gain.setValueAtTime(0.0001, now)
+    noteGain.gain.exponentialRampToValueAtTime(0.025, now + 0.045)
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 2.35)
+
+    oscillator.connect(noteGain)
+    noteGain.connect(master)
+    noteGain.connect(delay)
+    oscillator.start(now)
+    oscillator.stop(now + 2.4)
+  }
+
+  const startSequence = () => {
+    if (sequenceTimer) return
+    playChime()
+    sequenceTimer = window.setInterval(playChime, 2100)
+  }
+
+  const stopSequence = () => {
+    if (!sequenceTimer) return
+    window.clearInterval(sequenceTimer)
+    sequenceTimer = undefined
+  }
+
+  return {
+    async play() {
+      wantsToPlay = true
+      window.clearTimeout(suspendTimer)
+      await context.resume()
+      const now = context.currentTime
+      master.gain.cancelScheduledValues(now)
+      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
+      master.gain.exponentialRampToValueAtTime(0.22, now + 0.7)
+      startSequence()
+    },
+    pause() {
+      wantsToPlay = false
+      stopSequence()
+      const now = context.currentTime
+      master.gain.cancelScheduledValues(now)
+      master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
+      master.gain.exponentialRampToValueAtTime(0.0001, now + 0.38)
+      window.clearTimeout(suspendTimer)
+      suspendTimer = window.setTimeout(() => {
+        if (!wantsToPlay && context.state === 'running') context.suspend()
+      }, 430)
+    },
+    destroy() {
+      wantsToPlay = false
+      stopSequence()
+      window.clearTimeout(suspendTimer)
+      sources.forEach((source) => {
+        try {
+          source.stop()
+        } catch {
+          // The source may already have stopped while the page is closing.
+        }
+      })
+      context.close().catch(() => {})
+    },
+  }
+}
+
 function Loader() {
   const [progress, setProgress] = useState(0)
 
@@ -122,7 +263,7 @@ function ParticleField() {
   return <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />
 }
 
-function HeroSignal() {
+function HeroSignal({ active = false }) {
   const signalRef = useRef(null)
 
   useEffect(() => {
@@ -144,7 +285,7 @@ function HeroSignal() {
   }, [])
 
   return (
-    <div className="hero-signal" ref={signalRef} aria-hidden="true">
+    <div className={`hero-signal${active ? ' is-audio-on' : ''}`} ref={signalRef} aria-hidden="true">
       <div className="signal-heading">
         <span><i /> VISUAL RHYTHM</span>
         <small>AI SIGNAL</small>
@@ -166,7 +307,7 @@ function HeroSignal() {
       </div>
       <div className="signal-footer">
         <span>GENERATIVE MOTION</span>
-        <span>LIVE · 24/7</span>
+        <span>{active ? 'AUDIO · ON' : 'LIVE · 24/7'}</span>
       </div>
     </div>
   )
@@ -214,13 +355,43 @@ function ProjectVisual({ project, index }) {
 
 function App() {
   const rootRef = useRef(null)
+  const musicEngineRef = useRef(null)
   const [loaded, setLoaded] = useState(false)
   const [showBackToTop, setShowBackToTop] = useState(false)
+  const [musicOn, setMusicOn] = useState(false)
+  const [musicSupported, setMusicSupported] = useState(true)
 
   useEffect(() => {
     const timeout = window.setTimeout(() => setLoaded(true), 1650)
     return () => window.clearTimeout(timeout)
   }, [])
+
+  useEffect(() => () => musicEngineRef.current?.destroy(), [])
+
+  const toggleMusic = async () => {
+    if (musicOn) {
+      musicEngineRef.current?.pause()
+      setMusicOn(false)
+      return
+    }
+
+    try {
+      if (!musicEngineRef.current) {
+        musicEngineRef.current = createAmbientMusic()
+      }
+
+      if (!musicEngineRef.current) {
+        setMusicSupported(false)
+        return
+      }
+
+      await musicEngineRef.current.play()
+      setMusicOn(true)
+    } catch {
+      setMusicOn(false)
+      setMusicSupported(false)
+    }
+  }
 
   useEffect(() => {
     const updateBackToTop = () => setShowBackToTop(window.scrollY > window.innerHeight * 0.65)
@@ -506,6 +677,29 @@ function App() {
         <span>TOP<small>顶部</small></span>
         <ArrowUp size={17} strokeWidth={1.8} />
       </a>
+      <button
+        className={`music-control${musicOn ? ' is-playing' : ''}`}
+        type="button"
+        onClick={toggleMusic}
+        aria-pressed={musicOn}
+        aria-label={musicOn ? '关闭背景音乐' : '开启背景音乐'}
+        title={musicOn ? '关闭背景音乐' : '开启背景音乐'}
+        disabled={!musicSupported}
+        data-cursor
+      >
+        <span className="music-equalizer" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+          <i />
+        </span>
+        <span className="music-copy">
+          <strong>MUSIC</strong>
+          <small>
+            {!musicSupported ? 'UNAVAILABLE · 不支持' : musicOn ? 'ON · 播放中' : 'OFF · 点击开启'}
+          </small>
+        </span>
+      </button>
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="返回首页">
@@ -527,7 +721,7 @@ function App() {
         <section className="hero" id="top">
           <ParticleField />
           <div className="hero-grid" aria-hidden="true" />
-          <HeroSignal />
+          <HeroSignal active={musicOn} />
           <div className="hero-orb" aria-hidden="true">
             <div className="orb-core">
               {profile.markLines.map((line) => <span key={line}>{line}</span>)}
