@@ -40,7 +40,7 @@ export const profile = {
       degreeZh: '计算机科学硕士',
       focus: ['Algorithms', 'Machine Learning', 'Operating Systems', 'MySQL'],
       statement: '从算法原理到模型工程，建立面向真实系统的计算机科学训练。',
-      accent: '#4d68ff',
+      accent: '#68816f',
     },
     {
       code: 'UA',
@@ -66,7 +66,7 @@ export const profile = {
       year: '2025',
       summary: '基于 Dify 搭建多阶段教案生成工作流，以向量检索、重排序和结构化提示词自动产出可编辑教案初稿。',
       tags: ['Dify', 'Agentic RAG', 'BGE'],
-      color: '#4d68ff',
+      color: '#557563',
       href: 'https://github.com/KimiChen2000',
     },
     {
@@ -78,7 +78,7 @@ export const profile = {
       year: '2025',
       summary: '完成数据标准化、LoRA 微调、BLEU/ROUGE 评测，并使用 vLLM 与 Docker 部署 OpenAI 兼容推理接口。',
       tags: ['LLaMA-Factory', 'LoRA', 'vLLM'],
-      color: '#e5ff45',
+      color: '#b9944f',
       href: 'https://github.com/KimiChen2000',
     },
     {
@@ -90,7 +90,7 @@ export const profile = {
       year: '2025',
       summary: '围绕对局前五分钟数据构建差值特征，对比多种分类模型，优化后受试者工作特征曲线下面积超过 83%。',
       tags: ['Python', '特征工程', '随机森林'],
-      color: '#ff7657',
+      color: '#73805f',
       href: 'https://github.com/KimiChen2000',
     },
   ],

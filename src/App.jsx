@@ -4,7 +4,7 @@ import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import Lenis from 'lenis'
 import {
   ArrowDown,
-  ArrowDownRight,
+  ArrowRight,
   ArrowUp,
   ArrowUpRight,
   Asterisk,
@@ -16,12 +16,6 @@ import {
 import { profile } from './profile.js'
 
 gsap.registerPlugin(ScrollTrigger)
-
-const signalLevels = [
-  0.22, 0.36, 0.58, 0.34, 0.72, 0.46, 0.88, 0.54, 0.32, 0.68,
-  0.94, 0.52, 0.78, 0.42, 0.62, 1, 0.7, 0.38, 0.84, 0.56,
-  0.3, 0.64, 0.9, 0.48, 0.74, 0.4, 0.6, 0.28,
-]
 
 function createLightMusic() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext
@@ -46,11 +40,10 @@ function createLightMusic() {
   compressor.attack.value = 0.015
   compressor.release.value = 0.32
   filter.type = 'lowpass'
-  filter.frequency.value = 4600
-  filter.Q.value = 0.35
+  filter.frequency.value = 4400
   delay.delayTime.value = 0.24
   feedback.gain.value = 0.13
-  wet.gain.value = 0.18
+  wet.gain.value = 0.17
 
   filter.connect(master)
   filter.connect(delay)
@@ -69,7 +62,7 @@ function createLightMusic() {
   ]
   const arpeggio = [0, 1, 2, 1, 3, 2, 1, 2]
 
-  const playNote = (frequency, now, peak = 0.042, length = 0.78, type = 'triangle') => {
+  const playNote = (frequency, now, peak = 0.04, length = 0.78, type = 'triangle') => {
     const oscillator = context.createOscillator()
     const overtone = context.createOscillator()
     const overtoneGain = context.createGain()
@@ -79,11 +72,10 @@ function createLightMusic() {
     oscillator.frequency.setValueAtTime(frequency, now)
     overtone.type = 'sine'
     overtone.frequency.setValueAtTime(frequency * 2, now)
-    overtoneGain.gain.value = 0.16
+    overtoneGain.gain.value = 0.15
     noteGain.gain.setValueAtTime(0.0001, now)
     noteGain.gain.exponentialRampToValueAtTime(peak, now + 0.018)
     noteGain.gain.exponentialRampToValueAtTime(0.0001, now + length)
-
     oscillator.connect(noteGain)
     overtone.connect(overtoneGain)
     overtoneGain.connect(noteGain)
@@ -94,18 +86,18 @@ function createLightMusic() {
     overtone.stop(now + length + 0.05)
   }
 
-  const playChordWash = (chord, now) => {
+  const playWash = (chord, now) => {
     chord.slice(0, 3).forEach((frequency, index) => {
       const oscillator = context.createOscillator()
-      const chordGain = context.createGain()
+      const noteGain = context.createGain()
       oscillator.type = index === 1 ? 'triangle' : 'sine'
       oscillator.frequency.setValueAtTime(frequency / 2, now)
       oscillator.detune.value = index * 3 - 3
-      chordGain.gain.setValueAtTime(0.0001, now)
-      chordGain.gain.exponentialRampToValueAtTime(0.009, now + 0.42)
-      chordGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.65)
-      oscillator.connect(chordGain)
-      chordGain.connect(filter)
+      noteGain.gain.setValueAtTime(0.0001, now)
+      noteGain.gain.exponentialRampToValueAtTime(0.009, now + 0.42)
+      noteGain.gain.exponentialRampToValueAtTime(0.0001, now + 3.65)
+      oscillator.connect(noteGain)
+      noteGain.connect(filter)
       oscillator.start(now)
       oscillator.stop(now + 3.7)
     })
@@ -113,31 +105,17 @@ function createLightMusic() {
 
   const playStep = () => {
     if (context.state !== 'running' || !wantsToPlay) return
-
     const now = context.currentTime
     const chord = chords[Math.floor(step / 8) % chords.length]
     const position = step % arpeggio.length
     const frequency = chord[arpeggio[position]]
-
     playNote(frequency, now)
     if (position === 0) {
-      playChordWash(chord, now)
+      playWash(chord, now)
       playNote(chord[0] / 2, now, 0.018, 1.35, 'sine')
     }
     if (position === 4) playNote(frequency * 2, now, 0.01, 0.52, 'sine')
     step += 1
-  }
-
-  const startSequence = () => {
-    if (sequenceTimer) return
-    playStep()
-    sequenceTimer = window.setInterval(playStep, 480)
-  }
-
-  const stopSequence = () => {
-    if (!sequenceTimer) return
-    window.clearInterval(sequenceTimer)
-    sequenceTimer = undefined
   }
 
   return {
@@ -148,24 +126,27 @@ function createLightMusic() {
       const now = context.currentTime
       master.gain.cancelScheduledValues(now)
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
-      master.gain.exponentialRampToValueAtTime(0.24, now + 0.55)
-      startSequence()
+      master.gain.exponentialRampToValueAtTime(0.22, now + 0.55)
+      if (!sequenceTimer) {
+        playStep()
+        sequenceTimer = window.setInterval(playStep, 480)
+      }
     },
     pause() {
       wantsToPlay = false
-      stopSequence()
+      window.clearInterval(sequenceTimer)
+      sequenceTimer = undefined
       const now = context.currentTime
       master.gain.cancelScheduledValues(now)
       master.gain.setValueAtTime(Math.max(master.gain.value, 0.0001), now)
       master.gain.exponentialRampToValueAtTime(0.0001, now + 0.32)
-      window.clearTimeout(suspendTimer)
       suspendTimer = window.setTimeout(() => {
         if (!wantsToPlay && context.state === 'running') context.suspend()
       }, 370)
     },
     destroy() {
       wantsToPlay = false
-      stopSequence()
+      window.clearInterval(sequenceTimer)
       window.clearTimeout(suspendTimer)
       context.close().catch(() => {})
     },
@@ -178,185 +159,209 @@ function Loader() {
   useEffect(() => {
     const startedAt = performance.now()
     let frame
-
     const tick = (time) => {
-      const value = Math.min(100, Math.round(((time - startedAt) / 1200) * 100))
+      const value = Math.min(100, Math.round(((time - startedAt) / 1050) * 100))
       setProgress(value)
       if (value < 100) frame = requestAnimationFrame(tick)
     }
-
     frame = requestAnimationFrame(tick)
     return () => cancelAnimationFrame(frame)
   }, [])
 
   return (
     <div className="loader" aria-hidden="true">
-      <div className="loader-mark">{profile.fullName}</div>
-      <div className="loader-bottom">
-        <span>正在整理现场</span>
+      <div className="loader-symbol">
+        <span>K</span><i /><span>C</span>
+      </div>
+      <div className="loader-meta">
+        <span>INITIALIZING PORTFOLIO</span>
         <span>{String(progress).padStart(3, '0')}%</span>
       </div>
-      <div className="loader-line" style={{ '--progress': `${progress}%` }} />
+      <div className="loader-track"><span style={{ transform: `scaleX(${progress / 100})` }} /></div>
     </div>
   )
 }
 
-function ParticleField() {
+function AuroraField() {
   const canvasRef = useRef(null)
 
   useEffect(() => {
     const canvas = canvasRef.current
     const context = canvas.getContext('2d')
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const pointer = { x: -1000, y: -1000 }
-    let particles = []
-    let frame
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const pointer = { x: 0.5, y: 0.45, active: false }
     let width = 0
     let height = 0
+    let dpr = 1
+    let nodes = []
+    let frame
+
+    const makeNodes = () => {
+      const count = width < 700 ? 34 : Math.min(82, Math.round(width / 18))
+      nodes = Array.from({ length: count }, (_, index) => ({
+        x: ((index * 0.6180339887) % 1) * width,
+        y: ((index * 0.3819660113 + 0.17) % 1) * height,
+        baseX: ((index * 0.6180339887) % 1) * width,
+        baseY: ((index * 0.3819660113 + 0.17) % 1) * height,
+        phase: index * 0.73,
+        speed: 0.00018 + (index % 6) * 0.000022,
+        radius: index % 9 === 0 ? 2.2 : 1.05,
+      }))
+    }
 
     const resize = () => {
-      width = canvas.offsetWidth
-      height = canvas.offsetHeight
-      const dpr = Math.min(window.devicePixelRatio || 1, 1.5)
-      canvas.width = width * dpr
-      canvas.height = height * dpr
+      const bounds = canvas.getBoundingClientRect()
+      width = bounds.width
+      height = bounds.height
+      dpr = Math.min(window.devicePixelRatio || 1, 1.6)
+      canvas.width = Math.round(width * dpr)
+      canvas.height = Math.round(height * dpr)
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      const count = Math.min(58, Math.round(width / 24))
-      particles = Array.from({ length: count }, (_, index) => ({
-        x: (index * 137.5) % width,
-        y: (index * 83.7) % height,
-        radius: index % 7 === 0 ? 2.2 : 1,
-        speed: 0.08 + (index % 5) * 0.025,
-        offset: index * 0.7,
-      }))
+      makeNodes()
+    }
+
+    const glow = (x, y, radius, color) => {
+      const gradient = context.createRadialGradient(x, y, 0, x, y, radius)
+      gradient.addColorStop(0, color)
+      gradient.addColorStop(1, 'rgba(0,0,0,0)')
+      context.fillStyle = gradient
+      context.fillRect(x - radius, y - radius, radius * 2, radius * 2)
     }
 
     const draw = (time = 0) => {
       context.clearRect(0, 0, width, height)
-      particles.forEach((particle) => {
-        const drift = reduceMotion ? 0 : Math.sin(time * 0.0004 + particle.offset) * 10
-        const px = particle.x + drift
-        let py = particle.y + (reduceMotion ? 0 : time * particle.speed * 0.015)
-        py %= height
-        const distance = Math.hypot(px - pointer.x, py - pointer.y)
-        const influence = Math.max(0, 1 - distance / 180)
+      context.fillStyle = '#070a0d'
+      context.fillRect(0, 0, width, height)
 
-        context.beginPath()
-        context.arc(px, py, particle.radius + influence * 2.4, 0, Math.PI * 2)
-        context.fillStyle = `rgba(23, 23, 20, ${0.16 + influence * 0.38})`
-        context.fill()
+      const drift = reducedMotion ? 0 : time * 0.00016
+      context.globalCompositeOperation = 'screen'
+      glow(
+        width * (0.73 + Math.sin(drift * 0.9) * 0.12),
+        height * (0.25 + Math.cos(drift * 1.15) * 0.12),
+        Math.max(width, height) * 0.48,
+        'rgba(197, 161, 92, 0.16)',
+      )
+      glow(
+        width * (0.2 + Math.cos(drift * 0.75) * 0.13),
+        height * (0.72 + Math.sin(drift) * 0.13),
+        Math.max(width, height) * 0.43,
+        'rgba(90, 255, 164, 0.13)',
+      )
+      glow(
+        width * (0.55 + Math.sin(drift * 1.3) * 0.22),
+        height * (0.58 + Math.cos(drift * 0.65) * 0.16),
+        Math.max(width, height) * 0.3,
+        'rgba(188, 157, 92, 0.07)',
+      )
+
+      const pointerX = pointer.x * width
+      const pointerY = pointer.y * height
+      nodes.forEach((node) => {
+        const waveX = Math.sin(time * node.speed + node.phase) * 30
+        const waveY = Math.cos(time * node.speed * 0.82 + node.phase) * 22
+        const pull = pointer.active ? Math.max(0, 1 - Math.hypot(node.baseX - pointerX, node.baseY - pointerY) / 360) : 0
+        node.x = node.baseX + waveX + (pointerX - node.baseX) * pull * 0.075
+        node.y = node.baseY + waveY + (pointerY - node.baseY) * pull * 0.075
       })
 
-      if (!reduceMotion) frame = requestAnimationFrame(draw)
+      context.globalCompositeOperation = 'source-over'
+      for (let i = 0; i < nodes.length; i += 1) {
+        const node = nodes[i]
+        for (let j = i + 1; j < nodes.length; j += 1) {
+          const other = nodes[j]
+          const distance = Math.hypot(node.x - other.x, node.y - other.y)
+          const threshold = width < 700 ? 112 : 155
+          if (distance < threshold) {
+            context.beginPath()
+            context.moveTo(node.x, node.y)
+            context.lineTo(other.x, other.y)
+            context.strokeStyle = `rgba(181, 204, 225, ${(1 - distance / threshold) * 0.11})`
+            context.lineWidth = 0.7
+            context.stroke()
+          }
+        }
+        context.beginPath()
+        context.arc(node.x, node.y, node.radius, 0, Math.PI * 2)
+        context.fillStyle = i % 7 === 0 ? 'rgba(139, 255, 178, 0.72)' : 'rgba(221, 232, 241, 0.46)'
+        context.fill()
+      }
+
+      if (pointer.active) glow(pointerX, pointerY, 170, 'rgba(139, 255, 178, 0.055)')
+      if (!reducedMotion) frame = requestAnimationFrame(draw)
     }
 
-    const handlePointer = (event) => {
+    const onMove = (event) => {
       const bounds = canvas.getBoundingClientRect()
-      pointer.x = event.clientX - bounds.left
-      pointer.y = event.clientY - bounds.top
+      pointer.x = (event.clientX - bounds.left) / bounds.width
+      pointer.y = (event.clientY - bounds.top) / bounds.height
+      pointer.active = true
     }
+    const onLeave = () => { pointer.active = false }
 
     resize()
     draw()
     window.addEventListener('resize', resize)
-    canvas.addEventListener('pointermove', handlePointer)
-
+    canvas.addEventListener('pointermove', onMove)
+    canvas.addEventListener('pointerleave', onLeave)
     return () => {
       cancelAnimationFrame(frame)
       window.removeEventListener('resize', resize)
-      canvas.removeEventListener('pointermove', handlePointer)
+      canvas.removeEventListener('pointermove', onMove)
+      canvas.removeEventListener('pointerleave', onLeave)
     }
   }, [])
 
-  return <canvas ref={canvasRef} className="particle-field" aria-hidden="true" />
+  return <canvas className="aurora-field" ref={canvasRef} aria-hidden="true" />
 }
 
-function HeroSignal({ active = false }) {
-  const signalRef = useRef(null)
-
-  useEffect(() => {
-    const signal = signalRef.current
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const finePointer = window.matchMedia('(pointer: fine)').matches
-    if (!signal || reduceMotion || !finePointer) return undefined
-
-    const handlePointer = (event) => {
-      const bounds = signal.getBoundingClientRect()
-      const centerX = bounds.left + bounds.width / 2
-      const centerY = bounds.top + bounds.height / 2
-      const proximity = Math.max(0, 1 - Math.hypot(event.clientX - centerX, event.clientY - centerY) / 420)
-      signal.style.setProperty('--signal-energy', (1 + proximity * 0.38).toFixed(2))
-    }
-
-    window.addEventListener('pointermove', handlePointer, { passive: true })
-    return () => window.removeEventListener('pointermove', handlePointer)
-  }, [])
-
+function SectionLabel({ index, label, labelZh, end }) {
   return (
-    <div className={`hero-signal${active ? ' is-audio-on' : ''}`} ref={signalRef} aria-hidden="true">
-      <div className="signal-heading">
-        <span><i /> VISUAL RHYTHM</span>
-        <small>AI SIGNAL</small>
-      </div>
-      <div className="signal-frame">
-        <div className="signal-bars">
-          {signalLevels.map((level, index) => (
-            <i
-              key={`${level}-${index}`}
-              style={{
-                '--level': level,
-                '--low': (level * 0.28).toFixed(2),
-                '--delay': `${-(index % 8) * 0.11}s`,
-                '--speed': `${0.78 + (index % 5) * 0.12}s`,
-              }}
-            />
-          ))}
-        </div>
-      </div>
-      <div className="signal-footer">
-        <span>GENERATIVE MOTION</span>
-        <span>{active ? 'AUDIO · ON' : 'LIVE · 24/7'}</span>
-      </div>
+    <div className="section-label" data-reveal>
+      <span>{index}</span>
+      <p>{label}<small>{labelZh}</small></p>
+      <i />
+      {end && <em>{end}</em>}
     </div>
   )
 }
 
-function WordLine({ children, className = '' }) {
-  return (
-    <span className={`word-line ${className}`}>
-      {children.split(' ').map((word, index) => (
-        <span className="word-clip" key={`${word}-${index}`}>
-          <span className="word">{word}</span>
-        </span>
-      ))}
-    </span>
-  )
-}
-
 function ProjectVisual({ project, index }) {
+  const systemCode = index === 0 ? 'RAG / 01' : index === 1 ? 'LLM / 02' : 'ML / 03'
+  const coreCode = index === 0 ? 'AGENT' : index === 1 ? 'LORA' : 'AUC 83+'
+
   return (
-    <div
-      className={`project-visual project-visual-${index + 1}`}
-      style={{ '--project-color': project.color }}
-      aria-hidden="true"
-    >
-      <div className="visual-orbit orbit-one" />
-      <div className="visual-orbit orbit-two" />
-      <div className="visual-window">
-        <div className="visual-window-bar">
-          <i />
-          <i />
-          <i />
+    <div className={`project-visual project-visual-${index + 1}`} style={{ '--accent': project.color }} aria-hidden="true">
+      <div className="project-visual-head">
+        <span><i /><i /><i /></span>
+        <small>SYSTEM BLUEPRINT · 0{index + 1}</small>
+      </div>
+      <div className="project-stage">
+        <div className="blueprint-coordinate">X: 24.083<br />Y: 118.204</div>
+        <div className="system-pipeline">
+          <div className="system-node node-input">
+            <span>01</span><strong>INPUT</strong><small>RAW DATA</small>
+          </div>
+          <div className="system-connector connector-a"><i /></div>
+          <div className="project-core">
+            <span>{systemCode}</span>
+            <strong>{coreCode}</strong>
+            <small>PROCESSING CORE</small>
+          </div>
+          <div className="system-connector connector-b"><i /></div>
+          <div className="system-node node-output">
+            <span>03</span><strong>OUTPUT</strong><small>VERIFIED</small>
+          </div>
         </div>
-        <div className="visual-window-content">
-          <span>{project.number}</span>
-          <strong>{project.title}</strong>
-          <em>{project.titleZh}</em>
-          <div className="visual-rule" />
-          <small>{project.type} · {project.typeZh}</small>
+        <div className="blueprint-metrics">
+          <span>STATUS <b>ONLINE</b></span>
+          <span>PIPELINE <b>03 NODES</b></span>
+          <span>OUTPUT <b>STRUCTURED</b></span>
         </div>
       </div>
-      <span className="visual-code">{String(index + 1).padStart(2, '0')} / 03</span>
+      <div className="project-visual-foot">
+        <span>{project.type}</span>
+        <span>2025 / CN</span>
+      </div>
     </div>
   )
 }
@@ -370,7 +375,7 @@ function App() {
   const [musicSupported, setMusicSupported] = useState(true)
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => setLoaded(true), 1650)
+    const timeout = window.setTimeout(() => setLoaded(true), 1450)
     return () => window.clearTimeout(timeout)
   }, [])
 
@@ -382,263 +387,101 @@ function App() {
       setMusicOn(false)
       return
     }
-
     try {
-      if (!musicEngineRef.current) {
-        musicEngineRef.current = createLightMusic()
-      }
-
+      if (!musicEngineRef.current) musicEngineRef.current = createLightMusic()
       if (!musicEngineRef.current) {
         setMusicSupported(false)
         return
       }
-
       await musicEngineRef.current.play()
       setMusicOn(true)
     } catch {
-      setMusicOn(false)
       setMusicSupported(false)
+      setMusicOn(false)
     }
   }
 
   useEffect(() => {
-    const updateBackToTop = () => setShowBackToTop(window.scrollY > window.innerHeight * 0.65)
-    updateBackToTop()
-    window.addEventListener('scroll', updateBackToTop, { passive: true })
-    return () => window.removeEventListener('scroll', updateBackToTop)
+    const onScroll = () => setShowBackToTop(window.scrollY > window.innerHeight * 0.75)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
   useEffect(() => {
-    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduceMotion) return undefined
-
-    const lenis = new Lenis({
-      autoRaf: false,
-      duration: 1.05,
-      smoothWheel: true,
-      anchors: true,
-    })
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return undefined
+    const lenis = new Lenis({ autoRaf: false, duration: 1.05, smoothWheel: true, anchors: true })
     const update = (time) => lenis.raf(time * 1000)
-
     lenis.on('scroll', ScrollTrigger.update)
     gsap.ticker.add(update)
     gsap.ticker.lagSmoothing(0)
-
     return () => {
       gsap.ticker.remove(update)
       lenis.destroy()
     }
   }, [])
 
-  useEffect(() => {
-    if (!window.matchMedia('(pointer: fine)').matches) return undefined
-
-    const cursor = document.querySelector('.cursor')
-    const follower = document.querySelector('.cursor-follower')
-    const moveCursorX = gsap.quickTo(cursor, 'x', { duration: 0.12, ease: 'power3' })
-    const moveCursorY = gsap.quickTo(cursor, 'y', { duration: 0.12, ease: 'power3' })
-    const moveFollowerX = gsap.quickTo(follower, 'x', { duration: 0.45, ease: 'power3' })
-    const moveFollowerY = gsap.quickTo(follower, 'y', { duration: 0.45, ease: 'power3' })
-
-    const onMove = (event) => {
-      moveCursorX(event.clientX)
-      moveCursorY(event.clientY)
-      moveFollowerX(event.clientX)
-      moveFollowerY(event.clientY)
-    }
-    const onOver = (event) => {
-      if (event.target.closest('a, button, [data-cursor]')) {
-        follower.classList.add('is-active')
-      }
-    }
-    const onOut = (event) => {
-      if (event.target.closest('a, button, [data-cursor]')) {
-        follower.classList.remove('is-active')
-      }
-    }
-
-    window.addEventListener('pointermove', onMove)
-    document.addEventListener('pointerover', onOver)
-    document.addEventListener('pointerout', onOut)
-
-    return () => {
-      window.removeEventListener('pointermove', onMove)
-      document.removeEventListener('pointerover', onOver)
-      document.removeEventListener('pointerout', onOut)
-    }
-  }, [])
-
-  useEffect(() => {
-    if (!window.matchMedia('(pointer: fine)').matches) return undefined
-    const magnets = document.querySelectorAll('[data-magnetic]')
-    const listeners = []
-
-    magnets.forEach((element) => {
-      const onMove = (event) => {
-        const bounds = element.getBoundingClientRect()
-        const x = event.clientX - bounds.left - bounds.width / 2
-        const y = event.clientY - bounds.top - bounds.height / 2
-        gsap.to(element, { x: x * 0.18, y: y * 0.18, duration: 0.35, ease: 'power2.out' })
-      }
-      const onLeave = () => {
-        gsap.to(element, { x: 0, y: 0, duration: 0.75, ease: 'elastic.out(1, 0.35)' })
-      }
-      element.addEventListener('pointermove', onMove)
-      element.addEventListener('pointerleave', onLeave)
-      listeners.push({ element, onMove, onLeave })
-    })
-
-    return () => listeners.forEach(({ element, onMove, onLeave }) => {
-      element.removeEventListener('pointermove', onMove)
-      element.removeEventListener('pointerleave', onLeave)
-    })
-  }, [])
-
   useLayoutEffect(() => {
     const media = gsap.matchMedia()
     const context = gsap.context(() => {
       media.add('(prefers-reduced-motion: no-preference)', () => {
-        gsap.set('.hero .word', { yPercent: 115 })
-        gsap.set('.hero-kicker, .hero-meta, .scroll-hint', { opacity: 0, y: 18 })
-        gsap.set('.hero-signal', { opacity: 0, y: -14 })
-        gsap.set('.signal-frame', { scaleX: 0, transformOrigin: 'left center' })
+        gsap.set('.hero-reveal', { y: 38, opacity: 0 })
+        gsap.set('.hero-title-line > span', { yPercent: 112 })
 
-        gsap
-          .timeline({ delay: 1.5 })
-          .to('.hero .word', {
+        gsap.timeline({ delay: 1.18 })
+          .to('.hero-title-line > span', {
             yPercent: 0,
             duration: 1.15,
-            stagger: 0.075,
+            stagger: 0.11,
             ease: 'power4.out',
           })
-          .to(
-            '.hero-kicker, .hero-meta, .scroll-hint',
-            { opacity: 1, y: 0, duration: 0.8, stagger: 0.1, ease: 'power3.out' },
-            '-=0.65',
-          )
-          .to(
-            '.hero-signal',
-            { opacity: 1, y: 0, duration: 0.75, ease: 'power3.out' },
-            '-=0.82',
-          )
-          .to(
-            '.signal-frame',
-            { scaleX: 1, duration: 1.05, ease: 'expo.out' },
-            '<0.08',
-          )
+          .to('.hero-reveal', {
+            y: 0,
+            opacity: 1,
+            duration: 0.78,
+            stagger: 0.08,
+            ease: 'power3.out',
+          }, '-=0.62')
 
-        gsap.to('.hero-title', {
-          yPercent: 24,
-          opacity: 0.15,
+        gsap.to('.hero-content', {
+          yPercent: 18,
+          opacity: 0.18,
           ease: 'none',
-          scrollTrigger: {
-            trigger: '.hero',
-            start: 'top top',
-            end: 'bottom top',
-            scrub: true,
-          },
-        })
-
-        gsap.to('.hero-orb', {
-          rotate: 150,
-          yPercent: 42,
-          scale: 0.78,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: '.hero',
-            start: 'top top',
-            end: 'bottom top',
-            scrub: 0.8,
-          },
+          scrollTrigger: { trigger: '.hero', start: 'top top', end: 'bottom top', scrub: true },
         })
 
         gsap.utils.toArray('[data-reveal]').forEach((element) => {
-          gsap.fromTo(
-            element,
-            { y: 55, opacity: 0, filter: 'blur(12px)' },
-            {
-              y: 0,
-              opacity: 1,
-              filter: 'blur(0px)',
-              duration: 1,
-              ease: 'power3.out',
-              scrollTrigger: { trigger: element, start: 'top 88%', once: true },
-            },
-          )
-        })
-
-        const aboutWords = gsap.utils.toArray('.about-copy .story-word')
-        gsap.fromTo(
-          aboutWords,
-          { opacity: 0.14 },
-          {
+          gsap.fromTo(element, { y: 45, opacity: 0 }, {
+            y: 0,
             opacity: 1,
-            stagger: 0.04,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: '.about-story',
-              start: 'top 70%',
-              end: 'bottom 70%',
-              scrub: true,
-            },
-          },
-        )
-
-        gsap.to('.marquee-track', {
-          xPercent: -32,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: '.marquee',
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1,
-          },
+            duration: 0.9,
+            ease: 'power3.out',
+            scrollTrigger: { trigger: element, start: 'top 88%', once: true },
+          })
         })
 
         gsap.utils.toArray('.project-card').forEach((card) => {
           const visual = card.querySelector('.project-visual')
-          const windowElement = card.querySelector('.visual-window')
-          gsap.fromTo(
-            visual,
-            { clipPath: 'inset(0 0 100% 0 round 24px)' },
-            {
-              clipPath: 'inset(0 0 0% 0 round 24px)',
-              duration: 1.2,
-              ease: 'power4.inOut',
-              scrollTrigger: { trigger: card, start: 'top 80%', once: true },
-            },
-          )
-          gsap.fromTo(
-            windowElement,
-            { yPercent: 16, rotate: -5 },
-            {
-              yPercent: -12,
-              rotate: 2,
-              ease: 'none',
-              scrollTrigger: {
-                trigger: card,
-                start: 'top bottom',
-                end: 'bottom top',
-                scrub: 0.8,
-              },
-            },
-          )
+          const core = card.querySelector('.project-core')
+          gsap.fromTo(visual, { clipPath: 'inset(0 0 100% 0 round 28px)' }, {
+            clipPath: 'inset(0 0 0% 0 round 28px)',
+            duration: 1.25,
+            ease: 'power4.inOut',
+            scrollTrigger: { trigger: card, start: 'top 82%', once: true },
+          })
+          gsap.to(core, {
+            yPercent: -7,
+            rotate: 0,
+            ease: 'none',
+            scrollTrigger: { trigger: card, start: 'top bottom', end: 'bottom top', scrub: 0.8 },
+          })
         })
 
-        gsap.fromTo(
-          '.timeline-line span',
-          { scaleY: 0 },
-          {
-            scaleY: 1,
-            ease: 'none',
-            scrollTrigger: {
-              trigger: '.experience-list',
-              start: 'top 75%',
-              end: 'bottom 60%',
-              scrub: true,
-            },
-          },
-        )
+        gsap.fromTo('.timeline-progress', { scaleY: 0 }, {
+          scaleY: 1,
+          ease: 'none',
+          scrollTrigger: { trigger: '.journey-list', start: 'top 76%', end: 'bottom 64%', scrub: true },
+        })
 
         ScrollTrigger.create({
           start: 0,
@@ -658,296 +501,254 @@ function App() {
     <div className="site" ref={rootRef}>
       {!loaded && <Loader />}
       <a className="skip-link" href="#main">跳到主要内容</a>
-      <div className="cursor" aria-hidden="true" />
-      <div className="cursor-follower" aria-hidden="true" />
-      <div className="noise" aria-hidden="true" />
+      <div className="site-noise" aria-hidden="true" />
       <div className="scroll-progress" aria-hidden="true"><span /></div>
+
+      <header className="site-header">
+        <a className="brand" href="#top" aria-label="返回首页">
+          <span className="brand-mark">KC</span>
+          <span className="brand-name">KIMI CHEN<small>AI ENGINEER</small></span>
+        </a>
+        <nav aria-label="主导航">
+          <a href="#about">ABOUT <small>关于</small></a>
+          <a href="#education">EDUCATION <small>教育</small></a>
+          <a href="#work">WORK <small>项目</small></a>
+          <a href="#experience">JOURNEY <small>经历</small></a>
+        </nav>
+        <button
+          className={`music-control${musicOn ? ' is-playing' : ''}`}
+          type="button"
+          onClick={toggleMusic}
+          aria-pressed={musicOn}
+          aria-label={musicOn ? '关闭背景音乐' : '开启背景音乐'}
+          disabled={!musicSupported}
+        >
+          <Music2 size={17} strokeWidth={1.7} aria-hidden="true" />
+          <span>{musicOn ? 'SOUND ON' : 'SOUND OFF'}</span>
+        </button>
+      </header>
+
       <a
         className={`back-to-top${showBackToTop ? ' is-visible' : ''}`}
         href="#top"
         aria-label="返回页面顶部"
         aria-hidden={!showBackToTop}
         tabIndex={showBackToTop ? 0 : -1}
-        data-magnetic
       >
-        <span>TOP<small>顶部</small></span>
-        <ArrowUp size={17} strokeWidth={1.8} />
+        <ArrowUp size={18} strokeWidth={1.6} />
       </a>
-      <button
-        className={`music-control${musicOn ? ' is-playing' : ''}`}
-        type="button"
-        onClick={toggleMusic}
-        aria-pressed={musicOn}
-        aria-label={musicOn ? '关闭背景音乐' : '开启背景音乐'}
-        title={musicOn ? '关闭背景音乐' : '开启背景音乐'}
-        disabled={!musicSupported}
-        data-cursor
-      >
-        <Music2 size={19} strokeWidth={1.75} aria-hidden="true" />
-      </button>
-
-      <header className="site-header">
-        <a className="brand" href="#top" aria-label="返回首页">
-          <span>{profile.fullName}</span>
-          <i />
-        </a>
-        <nav aria-label="主导航">
-          <a href="#about"><span>ABOUT</span><small>关于</small></a>
-          <a href="#education"><span>EDUCATION</span><small>教育</small></a>
-          <a href="#work"><span>WORK</span><small>项目</small></a>
-          <a href="#experience"><span>JOURNEY</span><small>经历</small></a>
-        </nav>
-      </header>
 
       <main id="main">
         <section className="hero" id="top">
-          <ParticleField />
+          <AuroraField />
           <div className="hero-grid" aria-hidden="true" />
-          <HeroSignal active={musicOn} />
-          <div className="hero-orb" aria-hidden="true">
-            <div className="orb-core">
-              <span className="orb-monogram">K</span>
+          <div className="hero-scan" aria-hidden="true" />
+          <div className="hero-content">
+            <div className="hero-kicker hero-reveal">
+              <span><i /> {profile.eyebrow}</span>
+              <span>{profile.availability}</span>
             </div>
-            <div className="orb-ring ring-a" />
-            <div className="orb-ring ring-b" />
-            <Sparkles className="orb-spark" size={26} strokeWidth={1.2} />
-          </div>
 
-          <div className="hero-kicker">
-            <span className="status-dot" />
-            {profile.availability}
-          </div>
+            <h1 className="hero-title" aria-label={`${profile.heroLines[0]} ${profile.heroLines[1]}`}>
+              <span className="hero-title-line"><span>{profile.heroLines[0]}</span></span>
+              <span className="hero-title-line hero-title-accent"><span>{profile.heroLines[1]}</span></span>
+            </h1>
 
-          <h1 className="hero-title hero-title-en">
-            <WordLine>{profile.heroLines[0]}</WordLine>
-            <WordLine className="indent">{profile.heroLines[1]}</WordLine>
-          </h1>
-          <p className="hero-tagline-zh">{profile.heroTaglineZh}</p>
-
-          <div className="hero-meta">
-            <p>{profile.intro}</p>
-            <div>
-              <MapPin size={15} strokeWidth={1.6} />
-              <span>{profile.location}</span>
+            <div className="hero-lower hero-reveal">
+              <div className="hero-intro">
+                <span className="hero-intro-label">/ {profile.heroTaglineZh}</span>
+                <p>{profile.intro}</p>
+              </div>
+              <div className="hero-data">
+                <div><strong>03+</strong><span>AI / ML<br />PROJECTS</span></div>
+                <div><strong>83%+</strong><span>MODEL<br />AUC</span></div>
+              </div>
             </div>
-          </div>
 
-          <a className="scroll-hint" href="#about" aria-label="向下滚动到关于部分">
-            <span>SCROLL TO EXPLORE</span>
-            <ArrowDown size={18} strokeWidth={1.5} />
-          </a>
-        </section>
-
-        <section className="about section-pad" id="about">
-          <div className="section-heading" data-reveal>
-            <span className="section-index">01</span>
-            <p><strong>ABOUT</strong><small>关于我</small></p>
-            <div className="section-rule" />
-            <Asterisk size={20} strokeWidth={1.2} />
-          </div>
-
-          <div className="about-layout">
-            <aside className="about-profile" data-reveal>
-              <div className="about-profile-top">
-                <span>PROFILE · 01</span>
-                <div className="about-avatar" aria-hidden="true">{profile.initials}</div>
-              </div>
-              <div className="about-profile-name">
-                <strong>{profile.fullName}</strong>
-                <small>{profile.chineseName}</small>
-              </div>
-              <div className="about-profile-role">
-                <p>{profile.role}</p>
-                <small>{profile.roleZh}</small>
-              </div>
-              <div className="about-profile-location">
-                <MapPin size={14} strokeWidth={1.7} />
-                <span>{profile.location}</span>
-              </div>
-              <a
-                className="about-resume"
-                href={`${import.meta.env.BASE_URL}resume/Kimi-Chen-Resume.docx`}
-                download="Kimi-Chen-Resume.docx"
-                aria-label="下载 Kimi Chen 的简历"
-                data-cursor
-              >
-                <span>DOWNLOAD CV<small>下载简历</small></span>
-                <Download size={17} strokeWidth={1.7} />
-              </a>
-            </aside>
-            <div className="about-story">
-              <p className="about-kicker" data-reveal>
-                {profile.aboutKicker}<small>{profile.aboutKickerZh}</small>
-              </p>
-              <h2 className="about-copy">
-                {profile.aboutHeadline.map((line) => (
-                  <span className="about-copy-line" key={line}>
-                    {line.split(' ').map((word, index) => (
-                      <span className="story-word" key={`${word}-${index}`}>{word}</span>
-                    ))}
-                  </span>
-                ))}
-              </h2>
-              <p className="about-headline-zh" data-reveal>{profile.aboutHeadlineZh}</p>
+            <div className="hero-footer hero-reveal">
+              <span><MapPin size={14} strokeWidth={1.6} />{profile.location}</span>
+              <a href="#about">SCROLL TO EXPLORE <ArrowDown size={16} strokeWidth={1.6} /></a>
+              <span>© {new Date().getFullYear()} · PORTFOLIO</span>
             </div>
-          </div>
-
-          <div className="about-narrative">
-            <article data-reveal>
-              <span>01</span>
-              <div><strong>BACKGROUND</strong><small>交叉背景</small><p>{profile.about}</p></div>
-            </article>
-            <article data-reveal>
-              <span>02</span>
-              <div><strong>APPROACH</strong><small>实践方式</small><p>{profile.philosophy}</p></div>
-            </article>
-          </div>
-
-          <div className="stats">
-            {profile.stats.map((stat, index) => (
-              <div className="stat" data-reveal key={stat.label}>
-                <span className="stat-index">0{index + 1}</span>
-                <strong>{stat.value}</strong>
-                <span>{stat.label}<small>{stat.labelZh}</small></span>
-              </div>
-            ))}
           </div>
         </section>
 
-        <section className="education section-pad" id="education">
-          <div className="section-heading section-heading-light" data-reveal>
-            <span className="section-index">02</span>
-            <p><strong>EDUCATION</strong><small>教育背景</small></p>
-            <div className="section-rule" />
-            <span>2019 — 2025</span>
-          </div>
+        <section className="about section" id="about">
+          <div className="shell">
+            <SectionLabel index="01" label="ABOUT" labelZh="关于我" end="FROM MODEL TO PRODUCT" />
+            <div className="about-grid">
+              <aside className="profile-card" data-reveal>
+                <div className="profile-card-top">
+                  <span>PROFILE / 01</span><i>OPEN TO WORK</i>
+                </div>
+                <div className="profile-avatar" aria-hidden="true">
+                  <span>{profile.initials}</span>
+                  <div className="avatar-orbit" />
+                </div>
+                <div className="profile-name">
+                  <h3>{profile.fullName}</h3>
+                  <span>{profile.chineseName}</span>
+                </div>
+                <div className="profile-role">
+                  <p>{profile.role}</p><span>{profile.roleZh}</span>
+                </div>
+                <div className="profile-location"><MapPin size={15} />{profile.location}</div>
+                <a className="button-link" href={`${import.meta.env.BASE_URL}resume/Kimi-Chen-Resume.docx`} download="Kimi-Chen-Resume.docx">
+                  <span>DOWNLOAD CV<small>下载简历</small></span><Download size={18} strokeWidth={1.6} />
+                </a>
+              </aside>
 
-          <div className="education-intro" data-reveal>
-            <div>
-              <span>CS × MATH</span>
-              <h2>TWO DISCIPLINES.<br />ONE DIRECTION.</h2>
+              <div className="about-story">
+                <p className="overline" data-reveal>{profile.aboutKicker}<small>{profile.aboutKickerZh}</small></p>
+                <h2 data-reveal>
+                  {profile.aboutHeadline.map((line) => <span key={line}>{line}</span>)}
+                </h2>
+                <p className="about-lead" data-reveal>{profile.aboutHeadlineZh}</p>
+                <div className="about-notes">
+                  <article data-reveal><span>01 / BACKGROUND</span><h3>交叉背景</h3><p>{profile.about}</p></article>
+                  <article data-reveal><span>02 / APPROACH</span><h3>实践方式</h3><p>{profile.philosophy}</p></article>
+                </div>
+              </div>
             </div>
-            <p><strong>计算机科学 × 数学</strong>数学训练让我理解问题的结构，计算机科学让我把答案变成真实运行的系统。</p>
-          </div>
 
-          <div className="education-list">
-            {profile.education.map((item) => (
-              <article className="education-card" data-reveal key={item.code} style={{ '--education-accent': item.accent }}>
-                <div className="education-brand">
-                  <div className={`education-mark education-mark-${item.code.toLowerCase()}`}>
-                    <img src={item.logo} alt={`${item.school} official logo`} />
+            <div className="stats-grid">
+              {profile.stats.map((stat, index) => (
+                <article className="stat-card" data-reveal data-index={`0${index + 1}`} key={stat.label}>
+                  <span>0{index + 1}</span><strong>{stat.value}</strong><p>{stat.label}<small>{stat.labelZh}</small></p>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="education section" id="education">
+          <div className="education-glow" aria-hidden="true" />
+          <div className="shell">
+            <SectionLabel index="02" label="EDUCATION" labelZh="教育背景" end="2019 — 2025" />
+            <div className="section-intro" data-reveal>
+              <h2>TWO DISCIPLINES.<br /><em>ONE DIRECTION.</em></h2>
+              <p><strong>计算机科学 × 数学</strong>数学训练让我理解问题的结构，计算机科学让我把答案变成真实运行的系统。</p>
+            </div>
+            <div className="education-list">
+              {profile.education.map((item, index) => (
+                <article className="education-card" data-reveal key={item.code} style={{ '--accent': item.accent }}>
+                  <div className="education-number">0{index + 1}</div>
+                  <div className="education-logo"><img src={item.logo} alt={`${item.school} official logo`} /></div>
+                  <div className="education-school">
+                    <time>{item.period}</time>
+                    <h3>{item.school}</h3><span>{item.schoolZh}</span>
                   </div>
-                  <span aria-hidden="true">{item.code}</span>
-                </div>
-                <div className="education-school">
-                  <time>{item.period}</time>
-                  <h3>{item.school}</h3>
-                  <small>{item.schoolZh}</small>
-                </div>
-                <div className="education-detail">
-                  <strong>{item.degree}</strong>
-                  <small>{item.degreeZh}</small>
-                  <p>{item.statement}</p>
-                  <ul>
-                    {item.focus.map((focus) => <li key={focus}>{focus}</li>)}
-                  </ul>
-                  {item.award && <span className="education-award">{item.award}<small>国际学费奖学金</small></span>}
-                </div>
-              </article>
-            ))}
+                  <div className="education-detail">
+                    <h4>{item.degree}<small>{item.degreeZh}</small></h4>
+                    <p>{item.statement}</p>
+                    <ul>{item.focus.map((focus) => <li key={focus}>{focus}</li>)}</ul>
+                    {item.award && <div className="education-award"><Sparkles size={15} />{item.award}<small>国际学费奖学金</small></div>}
+                  </div>
+                </article>
+              ))}
+            </div>
+            <p className="trademark" data-reveal>SCHOOL NAMES &amp; MARKS ARE SHOWN ONLY TO IDENTIFY EDUCATION HISTORY.<small>校名与标识仅用于说明教育经历，不代表学校对本网站的认可或背书。</small></p>
           </div>
-          <p className="education-trademark" data-reveal>
-            SCHOOL NAMES &amp; MARKS ARE SHOWN ONLY TO IDENTIFY EDUCATION HISTORY.
-            <small>校名与标识仅用于说明教育经历，不代表学校对本网站的认可或背书。</small>
-          </p>
         </section>
 
-        <div className="marquee" aria-hidden="true">
-          <div className="marquee-track">
-            {[0, 1, 2].map((item) => (
-              <div className="marquee-set" key={item}>
-                <span>THINK IN SYSTEMS</span>
-                <Asterisk />
-                <span>BUILD INTELLIGENTLY</span>
-                <Asterisk />
+        <div className="ticker" aria-hidden="true">
+          <div className="ticker-track">
+            {[0, 1].map((item) => (
+              <div className="ticker-set" key={item}>
+                <span>THINK IN SYSTEMS</span><Asterisk /><span>BUILD INTELLIGENTLY</span><Asterisk /><span>SHIP REAL IMPACT</span><Asterisk />
               </div>
             ))}
           </div>
         </div>
 
-        <section className="work section-pad" id="work">
-          <div className="section-heading section-heading-light" data-reveal>
-            <span className="section-index">03</span>
-            <p><strong>SELECTED WORK</strong><small>精选项目</small></p>
-            <div className="section-rule" />
-            <span>2024 — 2025</span>
-          </div>
-
-          <div className="work-intro" data-reveal>
-            <h2>FROM MODELS<br />TO SYSTEMS.</h2>
-            <p><strong>从模型到系统的实践</strong>项目覆盖 Agent 工作流、模型微调部署和机器学习建模，呈现从问题拆解到工程落地的完整过程。</p>
-          </div>
-
-          <div className="project-list">
-            {profile.projects.map((project, index) => (
-              <article className="project-card" key={project.title}>
-                <a href={project.href} aria-label={`查看项目：${project.title}`}>
-                  <ProjectVisual project={project} index={index} />
-                  <div className="project-info" data-reveal>
-                    <div className="project-title-row">
-                      <span>{project.number}</span>
-                      <h3>{project.title}<small>{project.titleZh}</small></h3>
-                      <ArrowUpRight size={30} strokeWidth={1.2} />
+        <section className="work section" id="work">
+          <div className="shell">
+            <SectionLabel index="03" label="SELECTED WORK" labelZh="精选项目" end="2024 — 2025" />
+            <div className="section-intro work-intro" data-reveal>
+              <h2>FROM MODELS.<br /><em>TO SYSTEMS.</em></h2>
+              <p><strong>从模型到系统的实践</strong>项目覆盖 Agent 工作流、模型微调部署和机器学习建模，呈现从问题拆解到工程落地的完整过程。</p>
+            </div>
+            <div className="project-list">
+              {profile.projects.map((project, index) => (
+                <article className="project-card" key={project.title}>
+                  <a href={project.href} target="_blank" rel="noreferrer" aria-label={`查看项目：${project.title}`}>
+                    <ProjectVisual project={project} index={index} />
+                    <div className="project-info" data-reveal>
+                      <span className="project-index">PROJECT / {project.number}</span>
+                      <div className="project-title-row"><h3>{project.title}<small>{project.titleZh}</small></h3><ArrowUpRight size={32} strokeWidth={1.25} /></div>
+                      <p>{project.summary}</p>
+                      <div className="project-tags">{project.tags.map((tag) => <span key={tag}>{tag}</span>)}<time>{project.year}</time></div>
                     </div>
-                    <p>{project.summary}</p>
-                    <div className="project-tags">
-                      {project.tags.map((tag) => <span key={tag}>{tag}</span>)}
-                      <time>{project.year}</time>
-                    </div>
-                  </div>
-                </a>
-              </article>
-            ))}
+                  </a>
+                </article>
+              ))}
+            </div>
           </div>
         </section>
 
-        <section className="capabilities section-pad">
-          <div className="section-heading" data-reveal>
-            <span className="section-index">04</span>
-            <p><strong>CAPABILITIES</strong><small>专业能力</small></p>
-            <div className="section-rule" />
-            <Sparkles size={19} strokeWidth={1.2} />
+        <section className="capabilities section" id="capabilities">
+          <div className="shell">
+            <SectionLabel index="04" label="CAPABILITIES" labelZh="专业能力" end="WHAT I DO" />
+            <div className="capability-heading" data-reveal>
+              <h2>ONE WORKFLOW.<br />END TO END.</h2>
+              <p>从数据和模型，到服务与交互。<br />把每一层连接成真正可用的 AI 产品。</p>
+            </div>
+            <div className="capability-grid">
+              {profile.capabilities.map((item) => (
+                <article className="capability-card" data-reveal key={item.title}>
+                  <span>{item.number}</span>
+                  <div className="capability-icon"><Sparkles size={18} strokeWidth={1.4} /></div>
+                  <h3>{item.title}<small>{item.titleZh}</small></h3>
+                  <p>{item.description}</p>
+                  <ArrowRight className="capability-arrow" size={22} strokeWidth={1.4} />
+                </article>
+              ))}
+            </div>
           </div>
-          <div className="capability-list">
-            {profile.capabilities.map((item) => (
-              <div className="capability-row" data-reveal data-cursor key={item.title}>
-                <span>{item.number}</span>
-                <h3>{item.title}<small>{item.titleZh}</small></h3>
-                <p>{item.description}</p>
-                <ArrowDownRight size={28} strokeWidth={1.1} />
+        </section>
+
+        <section className="journey section" id="experience">
+          <div className="shell">
+            <SectionLabel index="05" label="JOURNEY" labelZh="成长经历" end="KEEP BUILDING" />
+            <div className="journey-grid">
+              <div className="journey-heading" data-reveal>
+                <h2>KEEP LEARNING.<br /><em>KEEP BUILDING.</em></h2>
+                <p>持续学习，持续构建。</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="experience section-pad" id="experience">
-          <div className="experience-title" data-reveal>
-            <span>05 · JOURNEY <small>成长经历</small></span>
-            <h2>KEEP LEARNING.<br />KEEP BUILDING.<small>持续学习，持续构建。</small></h2>
-          </div>
-          <div className="experience-list">
-            <div className="timeline-line" aria-hidden="true"><span /></div>
-            {profile.experience.map((item) => (
-              <div className="experience-item" data-reveal key={item.period}>
-                <i />
-                <time>{item.period}</time>
-                <strong>{item.company}<small>{item.companyZh}</small></strong>
-                <span>{item.role}<small>{item.roleZh}</small></span>
+              <div className="journey-list">
+                <div className="journey-line"><span className="timeline-progress" /></div>
+                {profile.experience.map((item, index) => (
+                  <article className="journey-item" data-reveal key={item.period}>
+                    <i /><span>0{index + 1}</span><time>{item.period}</time>
+                    <h3>{item.company}<small>{item.companyZh}</small></h3>
+                    <p>{item.role}<small>{item.roleZh}</small></p>
+                  </article>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
         </section>
 
+        <footer className="contact section" id="contact">
+          <div className="contact-orb" aria-hidden="true" />
+          <div className="shell">
+            <div className="contact-top">
+              <span><i /> AVAILABLE FOR OPPORTUNITIES</span>
+              <span>06 / CONTACT · 联系</span>
+            </div>
+            <div className="contact-main">
+              <p>HAVE AN IDEA?<small>有一个值得实现的想法？</small></p>
+              <a href={`mailto:${profile.email}`}>LET&apos;S BUILD.<ArrowUpRight strokeWidth={1.1} /></a>
+            </div>
+            <div className="contact-bottom">
+              <div><span>EMAIL</span><a href={`mailto:${profile.email}`}>{profile.email}</a></div>
+              <div><span>FIND ME</span>{profile.socials.map((social) => <a href={social.href} key={social.label}>{social.label}</a>)}</div>
+              <div><span>LOCATION</span><p>{profile.location}</p></div>
+              <a className="contact-top-link" href="#top">BACK TO TOP <ArrowUp size={16} /></a>
+            </div>
+            <div className="contact-legal"><span>© {new Date().getFullYear()} {profile.fullName}</span><span>DESIGNED &amp; BUILT WITH INTENTION</span></div>
+          </div>
+        </footer>
       </main>
     </div>
   )
