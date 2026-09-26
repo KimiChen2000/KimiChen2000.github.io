@@ -1,7 +1,10 @@
 node_modules/
 dist/
+dist-redesign/
+dist-warp-demo/
 output/
 .playwright-cli/
 .vite/
 *.log
 .DS_Store
+.originkit/
