@@ -1,18 +1,14 @@
-# Kimi's Portfolio · Kimi 的个人主页
+# Kimi Chen · Interactive Résumé
 
-一个面向 GitHub Pages 的现代动态个人展示页，以英文标题配合中文说明，重点介绍 AI 应用开发工程师 Kimi Chen 的计算机科学与数学教育背景，以及大模型应用、模型微调部署和机器学习项目。
+Kimi Chen 的中英文互动简历，以 ThreeUI Bestsellers Book Showcase 的原始书本动画为展示框架，介绍个人简介、教育背景、工作经历与精选 AI / ML 项目。
 
-## 技术栈
+## 功能
 
-- React + Vite
-- GSAP + ScrollTrigger
-- Lenis 平滑滚动
-- Canvas 粒子背景
-- GitHub Actions 自动部署
-
-## 修改内容
-
-个人资料、项目、经历和联系方式集中在 `src/profile.js`。浏览器标题和搜索摘要位于 `index.html`。
+- 保留 ThreeUI 原版书本动画、响应式布局与嵌入媒体
+- 中英文切换，`Kimi.` 标题保持不变
+- 姓名导航、设置弹窗与完整键盘操作
+- 桌面端和移动端简历详情
+- PDF 简历、GitHub、邮箱与 QQ 联系入口
 
 ## 本地运行
 
@@ -21,17 +17,20 @@ npm install
 npm run dev
 ```
 
-生产构建：
+构建及验证：
 
 ```bash
+npm test
 npm run build
 npm run preview
 ```
 
-## GitHub Pages
+构建过程会从已锁定版本的 `@designcodeio/threeui` 中读取规范源文件，校验 SHA-256 后生成个性化页面：
 
-仓库包含 `.github/workflows/deploy.yml`。在仓库的 **Settings → Pages** 中将 **Build and deployment → Source** 设置为 **GitHub Actions**，推送到 `main` 后即可自动部署。
+`public/landing-pages/bestsellers-book-showcase.html`
 
-页面会尊重操作系统的“减少动态效果”设置，并针对触屏设备降低高成本视觉效果。
+## 发布
 
-公开地址：<https://kimichen2000.github.io/>
+推送到 `main` 后，`.github/workflows/deploy.yml` 会构建并发布到 GitHub Pages：
+
+<https://kimichen2000.github.io/>

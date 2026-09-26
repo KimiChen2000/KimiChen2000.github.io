@@ -5,15 +5,17 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "build": "npm run personalize:source && npm run verify:source && vite build",
+    "preview": "vite preview",
+    "test": "npm run personalize:source && npm run verify:source",
+    "personalize:source": "node scripts/personalize-bestsellers-source.mjs",
+    "verify:source": "node scripts/verify-bestsellers-source.mjs"
   },
   "dependencies": {
-    "gsap": "^3.15.0",
-    "lenis": "^1.3.25",
-    "lucide-react": "^1.28.0",
+    "@designcodeio/threeui": "1.2.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "three": "^0.180.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.5",
